@@ -1,0 +1,349 @@
+-- ============================================================
+--  Auto Code Redeem
+--  Skidded By IGambleOnDices On Discord
+-- ============================================================
+
+local Players         = game:GetService("Players")
+local RunService      = game:GetService("RunService")
+local Stats           = game:GetService("Stats")
+local UserInputService= game:GetService("UserInputService")
+local RS              = game:GetService("ReplicatedStorage")
+local LocalPlayer     = Players.LocalPlayer
+local PlayerGui       = LocalPlayer:WaitForChild("PlayerGui")
+
+local targetBox  = nil  -- the TextBox the user picked
+local pickMode   = false
+
+-- ============================================================
+--  UI
+-- ============================================================
+
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "AutoRedeemUI"
+screenGui.ResetOnSpawn = false
+screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+screenGui.Parent = PlayerGui
+
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 420, 0, 110)
+frame.Position = UDim2.new(0.5, -210, 0, 8)
+frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+frame.BorderSizePixel = 0
+frame.Parent = screenGui
+
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 8)
+corner.Parent = frame
+
+local stroke = Instance.new("UIStroke")
+stroke.Color = Color3.fromRGB(80, 80, 80)
+stroke.Thickness = 1
+stroke.Parent = frame
+
+-- Title
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, -16, 0, 22)
+title.Position = UDim2.new(0, 8, 0, 6)
+title.BackgroundTransparency = 1
+title.Text = "Auto Code Redeem  |  Skidded By IGambleOnDices On Discord"
+title.TextColor3 = Color3.fromRGB(200, 200, 200)
+title.TextSize = 13
+title.Font = Enum.Font.GothamBold
+title.TextXAlignment = Enum.TextXAlignment.Center
+title.Parent = frame
+
+-- Listening row
+local listenRow = Instance.new("Frame")
+listenRow.Size = UDim2.new(1, 0, 0, 20)
+listenRow.Position = UDim2.new(0, 0, 0, 30)
+listenRow.BackgroundTransparency = 1
+listenRow.Parent = frame
+
+local listenLayout = Instance.new("UIListLayout")
+listenLayout.FillDirection = Enum.FillDirection.Horizontal
+listenLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+listenLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+listenLayout.Padding = UDim.new(0, 2)
+listenLayout.Parent = listenRow
+
+local listenLabel = Instance.new("TextLabel")
+listenLabel.Size = UDim2.new(0, 130, 1, 0)
+listenLabel.BackgroundTransparency = 1
+listenLabel.Text = "Listening For Codes:"
+listenLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+listenLabel.TextSize = 12
+listenLabel.Font = Enum.Font.Gotham
+listenLabel.TextXAlignment = Enum.TextXAlignment.Left
+listenLabel.Parent = listenRow
+
+local dotsLabel = Instance.new("TextLabel")
+dotsLabel.Size = UDim2.new(0, 30, 1, 0)
+dotsLabel.BackgroundTransparency = 1
+dotsLabel.Text = "âââ"
+dotsLabel.TextColor3 = Color3.fromRGB(60, 220, 90)
+dotsLabel.TextSize = 12
+dotsLabel.Font = Enum.Font.Gotham
+dotsLabel.TextXAlignment = Enum.TextXAlignment.Left
+dotsLabel.Parent = listenRow
+
+-- FPS / Ping
+local statsLabel = Instance.new("TextLabel")
+statsLabel.Size = UDim2.new(1, -16, 0, 14)
+statsLabel.Position = UDim2.new(0, 8, 0, 52)
+statsLabel.BackgroundTransparency = 1
+statsLabel.Text = "FPS: --  |  Ping: -- ms"
+statsLabel.TextColor3 = Color3.fromRGB(140, 140, 140)
+statsLabel.TextSize = 11
+statsLabel.Font = Enum.Font.Gotham
+statsLabel.TextXAlignment = Enum.TextXAlignment.Center
+statsLabel.Parent = frame
+
+-- Status line
+local statusLabel = Instance.new("TextLabel")
+statusLabel.Size = UDim2.new(1, -16, 0, 14)
+statusLabel.Position = UDim2.new(0, 8, 0, 68)
+statusLabel.BackgroundTransparency = 1
+statusLabel.Text = "No box selected â click Pick Box"
+statusLabel.TextColor3 = Color3.fromRGB(255, 200, 50)
+statusLabel.TextSize = 11
+statusLabel.Font = Enum.Font.Gotham
+statusLabel.TextXAlignment = Enum.TextXAlignment.Center
+statusLabel.Parent = frame
+
+-- Pick Box button
+local pickBtn = Instance.new("TextButton")
+pickBtn.Size = UDim2.new(1, -16, 0, 20)
+pickBtn.Position = UDim2.new(0, 8, 0, 84)
+pickBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+pickBtn.BorderSizePixel = 0
+pickBtn.Text = "Pick Box"
+pickBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
+pickBtn.TextSize = 11
+pickBtn.Font = Enum.Font.GothamBold
+pickBtn.Parent = frame
+
+local pickCorner = Instance.new("UICorner")
+pickCorner.CornerRadius = UDim.new(0, 5)
+pickCorner.Parent = pickBtn
+
+local pickStroke = Instance.new("UIStroke")
+pickStroke.Color = Color3.fromRGB(80, 80, 80)
+pickStroke.Thickness = 1
+pickStroke.Parent = pickBtn
+
+-- ============================================================
+--  Dragging
+-- ============================================================
+
+local dragging, dragStart, startPos
+
+local function onInputBegan(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1
+    or input.UserInputType == Enum.UserInputType.Touch then
+        dragging  = true
+        dragStart = input.Position
+        startPos  = frame.Position
+    end
+end
+
+local function onInputChanged(input)
+    if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement
+    or input.UserInputType == Enum.UserInputType.Touch) then
+        local delta = input.Position - dragStart
+        frame.Position = UDim2.new(
+            startPos.X.Scale, startPos.X.Offset + delta.X,
+            startPos.Y.Scale, startPos.Y.Offset + delta.Y
+        )
+    end
+end
+
+local function onInputEnded(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1
+    or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = false
+    end
+end
+
+frame.InputBegan:Connect(onInputBegan)
+frame.InputChanged:Connect(onInputChanged)
+frame.InputEnded:Connect(onInputEnded)
+UserInputService.InputChanged:Connect(onInputChanged)
+
+-- ============================================================
+--  Animations
+-- ============================================================
+
+local dotFrames = {"â", "â â", "â â â"}
+local dotIndex = 1
+task.spawn(function()
+    while true do
+        dotsLabel.Text = dotFrames[dotIndex]
+        dotIndex = dotIndex % #dotFrames + 1
+        task.wait(0.45)
+    end
+end)
+
+local currentFps = 0
+local fpsBuffer = {}
+RunService.RenderStepped:Connect(function(dt)
+    table.insert(fpsBuffer, 1 / dt)
+    if #fpsBuffer > 10 then table.remove(fpsBuffer, 1) end
+    local sum = 0
+    for _, v in ipairs(fpsBuffer) do sum += v end
+    currentFps = math.round(sum / #fpsBuffer)
+end)
+
+local function getPing()
+    local ok, val = pcall(function()
+        return math.round(Players.LocalPlayer:GetNetworkPing() * 1000)
+    end)
+    if ok and val then return val end
+    local ok2, val2 = pcall(function()
+        return math.round(game:GetService("Stats").Network.ServerStatsItem["Data Ping"].Value)
+    end)
+    return (ok2 and val2) or 0
+end
+
+task.spawn(function()
+    while true do
+        local ping = getPing()
+        local fpsColor = currentFps >= 50 and Color3.fromRGB(80, 220, 100)
+            or currentFps >= 30 and Color3.fromRGB(255, 200, 50)
+            or Color3.fromRGB(255, 80, 80)
+        statsLabel.Text = "FPS: " .. currentFps .. "  |  Ping: " .. ping .. " ms"
+        statsLabel.TextColor3 = fpsColor
+        task.wait(0.5)
+    end
+end)
+
+-- ============================================================
+--  Pick Box â click the button, then click any TextBox
+-- ============================================================
+
+local function setStatus(text, color)
+    statusLabel.Text = text
+    statusLabel.TextColor3 = color or Color3.fromRGB(120, 120, 120)
+end
+
+local function stopPicking()
+    pickMode = false
+    pickBtn.Text = "Pick Box"
+    pickBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    pickBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
+end
+
+pickBtn.MouseButton1Click:Connect(function()
+    if pickMode then stopPicking() return end
+    pickMode = true
+    pickBtn.Text = "Click into any TextBox..."
+    pickBtn.BackgroundColor3 = Color3.fromRGB(255, 160, 20)
+    pickBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
+    setStatus("Click into the box you want codes in", Color3.fromRGB(255, 200, 50))
+end)
+
+-- Attach a Focused listener to a TextBox
+local function watchTextBox(obj)
+    if not obj:IsA("TextBox") then return end
+    if obj:IsDescendantOf(screenGui) then return end
+    obj.Focused:Connect(function()
+        if not pickMode then return end
+        targetBox = obj
+        stopPicking()
+        setStatus("Target: " .. obj.Name, Color3.fromRGB(80, 255, 120))
+    end)
+end
+
+-- Watch all current and future TextBoxes
+for _, obj in ipairs(PlayerGui:GetDescendants()) do
+    watchTextBox(obj)
+end
+PlayerGui.DescendantAdded:Connect(function(obj)
+    task.wait() -- let it fully initialize
+    watchTextBox(obj)
+end)
+
+-- ============================================================
+--  Paste code into selected box
+-- ============================================================
+
+local function pasteCode(text)
+    local code = text:gsub("%s+", "")
+    if code == "" then return end
+
+    if not targetBox then
+        setStatus("No box selected â click Pick Box", Color3.fromRGB(255, 80, 80))
+        return
+    end
+
+    if not targetBox.Parent then
+        setStatus("Box gone â pick again", Color3.fromRGB(255, 80, 80))
+        targetBox = nil
+        return
+    end
+
+    targetBox.Text = code
+    setStatus("Pasted: " .. code, Color3.fromRGB(80, 255, 120))
+    task.delay(5, function()
+        if statusLabel.Text == "Pasted: " .. code then
+            setStatus("Target: " .. (targetBox and targetBox.Name or "none"), Color3.fromRGB(80, 255, 120))
+        end
+    end)
+end
+
+-- ============================================================
+--  Detection â RemoteEvent for global messages
+-- ============================================================
+
+local REMOTE_HASH = "080efa832657457aaa9b706416b0366890af7efafc5243f40f2833036262119e"
+local hooked = false
+
+local function hookRemote(remote)
+    if hooked then return end
+    hooked = true
+    print("[AutoRedeem] Hooked: " .. remote:GetFullName())
+    setStatus("Listening â pick a box!", Color3.fromRGB(80, 255, 120))
+    remote.OnClientEvent:Connect(function(msg)
+        print("[AutoRedeem] Fired! msg=" .. tostring(msg))
+        if type(msg) ~= "string" then return end
+        local code = msg:gsub("%s+", "")
+        if #code < 1 then return end
+        pasteCode(msg)
+    end)
+end
+
+-- Try scanning everything already in RS right now
+local function scanNow()
+    local function scan(parent)
+        for _, child in ipairs(parent:GetChildren()) do
+            if child:IsA("RemoteEvent") and child.Name:find(REMOTE_HASH, 1, true) then
+                hookRemote(child)
+                return
+            end
+            pcall(scan, child)
+        end
+    end
+    scan(RS)
+end
+
+-- Also watch for it appearing later (replication delay)
+RS.DescendantAdded:Connect(function(obj)
+    if hooked then return end
+    if obj:IsA("RemoteEvent") and obj.Name:find(REMOTE_HASH, 1, true) then
+        hookRemote(obj)
+    end
+end)
+
+-- Run immediately, then retry a few times with delays
+task.spawn(function()
+    for i = 1, 10 do
+        scanNow()
+        if hooked then break end
+        task.wait(1)
+    end
+    if not hooked then
+        warn("[AutoRedeem] Could not find global message remote after 10s.")
+        setStatus("Remote not found â rejoin?", Color3.fromRGB(255, 80, 80))
+    end
+end)
+
+print("[AutoRedeem] Loaded â searching for remote...")
